@@ -58,6 +58,33 @@ extern Coding2UTF16 *coding2utf16;
 #define MESSAGE_CANCEL coding2utf16->MESSAGE_CANCEL
 #endif
 
+#if defined(AETHERKIRI_EMBEDDED_HOST)
+extern "C" void aetherkiri_onscripter_begin_system_list_scroll();
+extern "C" void aetherkiri_onscripter_end_system_list_scroll();
+
+namespace {
+class AetherKiriSystemListScrollScope {
+public:
+    AetherKiriSystemListScrollScope() : active_(true) {
+        aetherkiri_onscripter_begin_system_list_scroll();
+    }
+
+    ~AetherKiriSystemListScrollScope() {
+        finish();
+    }
+
+    void finish() {
+        if (!active_) return;
+        active_ = false;
+        aetherkiri_onscripter_end_system_list_scroll();
+    }
+
+private:
+    bool active_;
+};
+}
+#endif
+
 #ifdef ANDROID
 #include <stdarg.h>
 static int osprintf(char *str, const char *format, ...)
@@ -292,6 +319,9 @@ void ONScripter::executeWindowErase()
 
 bool ONScripter::executeSystemLoad()
 {
+#if defined(AETHERKIRI_EMBEDDED_HOST)
+    AetherKiriSystemListScrollScope system_list_scroll;
+#endif
     current_font = &menu_font;
 
     text_info.fill( 0, 0, 0, 0 );
@@ -357,6 +387,9 @@ bool ONScripter::executeSystemLoad()
     }
 
     if ( current_button_state.button > 0 ){
+#if defined(AETHERKIRI_EMBEDDED_HOST)
+        system_list_scroll.finish();
+#endif
         deleteButtonLink();
 
         if (executeSystemYesNo( SYSTEM_LOAD, file_no )){
@@ -401,6 +434,9 @@ bool ONScripter::executeSystemLoad()
 
 void ONScripter::executeSystemSave()
 {
+#if defined(AETHERKIRI_EMBEDDED_HOST)
+    AetherKiriSystemListScrollScope system_list_scroll;
+#endif
     current_font = &menu_font;
 
     text_info.fill( 0, 0, 0, 0 );
@@ -457,6 +493,9 @@ void ONScripter::executeSystemSave()
     deleteButtonLink();
 
     if ( current_button_state.button > 0 ){
+#if defined(AETHERKIRI_EMBEDDED_HOST)
+        system_list_scroll.finish();
+#endif
         int file_no = current_button_state.button;
         if (executeSystemYesNo( SYSTEM_SAVE, file_no )){
             if (saveon_flag && internal_saveon_flag) storeSaveFile();
