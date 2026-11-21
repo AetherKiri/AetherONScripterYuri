@@ -33,22 +33,8 @@
 
 typedef unsigned char uchar3[3];
 
-class AnimationInfo{
-public:
-    typedef Uint32 ONSBuf;
-    enum { TRANS_ALPHA          = 1,
-           TRANS_TOPLEFT        = 2,
-           TRANS_COPY           = 3,
-           TRANS_STRING         = 4,
-           TRANS_DIRECT         = 5,
-           TRANS_PALLETTE       = 6,
-           TRANS_TOPRIGHT       = 7,
-           TRANS_MASK           = 8,
-#ifdef USE_BUILTIN_LAYER_EFFECTS
-           TRANS_LAYER          = 9
-#endif
-    };
-
+// Value state can be copied independently of the owned SDL resources.
+struct AnimationInfoState {
     /* variables set from the image tag */
     int trans_mode;
     unsigned char default_alpha;
@@ -65,40 +51,25 @@ public:
     int num_of_cells;
     int current_cell;
     int direction;
-    int *duration_list;
-    uchar3 *color_list;
     int loop_mode;
     bool is_animatable;
     bool is_single_line;
     bool is_tight_region; // valid under TRANS_STRING, if false, ruby is parsed
     bool is_ruby_drawable;
-        
-    char *file_name;
-    char *mask_file_name;
 
-    /* Variables from AnimationInfo */
+    /* Rendering state */
     bool visible;
     bool abs_flag;
     bool affine_flag;
     int trans;
-    char *image_name;
-    char *surface_name; // used to avoid reloading images
-    char *mask_surface_name; // used to avoid reloading images
-    SDL_Surface *image_surface;
-    unsigned char *alpha_buf;
     Uint32 texture_format;
-    SDL_mutex *mutex;
-        
+
     /* Variables for extended sprite (lsp2, drawsp2, etc.) */
     int scale_x, scale_y, rot;
     int mat[2][2], inv_mat[2][2];
     int corner_xy[4][2];
     SDL_Rect bounding_rect;
 
-    enum { BLEND_NORMAL = 0,
-           BLEND_ADD    = 1,
-           BLEND_SUB    = 2
-    };
     int blending_mode;
     int cos_i, sin_i;
 
@@ -109,7 +80,39 @@ public:
     int param; // used by prnum and bar
     int max_param; // used by bar
     int max_width; // used by bar
-    
+};
+
+class AnimationInfo : public AnimationInfoState {
+public:
+    typedef Uint32 ONSBuf;
+    enum { TRANS_ALPHA          = 1,
+           TRANS_TOPLEFT        = 2,
+           TRANS_COPY           = 3,
+           TRANS_STRING         = 4,
+           TRANS_DIRECT         = 5,
+           TRANS_PALLETTE       = 6,
+           TRANS_TOPRIGHT       = 7,
+           TRANS_MASK           = 8,
+#ifdef USE_BUILTIN_LAYER_EFFECTS
+           TRANS_LAYER          = 9
+#endif
+    };
+
+    enum { BLEND_NORMAL = 0,
+           BLEND_ADD    = 1,
+           BLEND_SUB    = 2
+    };
+    int *duration_list;
+    uchar3 *color_list;
+    char *file_name;
+    char *mask_file_name;
+    char *image_name;
+    char *surface_name; // used to avoid reloading images
+    char *mask_surface_name; // used to avoid reloading images
+    SDL_Surface *image_surface;
+    unsigned char *alpha_buf;
+    SDL_mutex *mutex;
+
     AnimationInfo();
     AnimationInfo(const AnimationInfo &anim);
     ~AnimationInfo();
