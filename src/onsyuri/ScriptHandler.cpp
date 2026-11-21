@@ -785,20 +785,26 @@ void ScriptHandler::setNumVariable( int no, int val )
     vd.num = val;
 }
 
-int ScriptHandler::getStringFromInteger( char *buffer, int no, int num_column, bool is_zero_inserted )
+int ScriptHandler::getStringFromInteger( char *buffer, int value, int num_column, bool is_zero_inserted )
 {
+    long long no = value;
     int i, num_space=0, num_minus = 0;
     if (no < 0){
         num_minus = 1;
         no = -no;
     }
-    int num_digit=1, no2 = no;
+    int num_digit=1;
+    long long no2 = no;
     while(no2 >= 10){
         no2 /= 10;
         num_digit++;
     }
 
     if (num_column < 0) num_column = num_digit+num_minus;
+    if (num_column == 0) {
+        buffer[0] = '\0';
+        return 0;
+    }
     if (num_digit+num_minus <= num_column)
         num_space = num_column - (num_digit+num_minus);
     else{
@@ -809,23 +815,13 @@ int ScriptHandler::getStringFromInteger( char *buffer, int no, int num_column, b
 
 #if defined(ENABLE_1BYTE_CHAR) && defined(FORCE_1BYTE_CHAR)
     if (num_minus == 1) no = -no;
-    char format[6];
-    if (is_zero_inserted)
-        sprintf(format, "%%0%dd", num_column);
-    else
-        sprintf(format, "%%%dd", num_column);
-    sprintf(buffer, format, no);
+    snprintf(buffer, static_cast<size_t>(num_column) + 1, is_zero_inserted ? "%0*lld" : "%*lld", num_column, no);
     
     return num_column;
 #else
     if(coding2utf16->force_utf8) {
         if (num_minus == 1) no = -no;
-        char format[6];
-        if (is_zero_inserted)
-            sprintf(format, "%%0%dd", num_column);
-        else
-            sprintf(format, "%%%dd", num_column);
-        sprintf(buffer, format, no);
+        snprintf(buffer, static_cast<size_t>(num_column) + 1, is_zero_inserted ? "%0*lld" : "%*lld", num_column, no);
         
         return num_column;
     }
