@@ -24,6 +24,8 @@
 
 #include "AnimationInfo.h"
 #include <math.h>
+#include <memory>
+#include <stdexcept>
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -45,7 +47,7 @@
 static bool is_inv_alpha_lut_initialized = false;
 static Uint32 inv_alpha_lut[256];
 
-AnimationInfo::AnimationInfo()
+AnimationInfo::AnimationInfo() : AnimationInfoState{}
 {
     image_name = NULL;
     surface_name = NULL;
@@ -72,7 +74,7 @@ AnimationInfo::AnimationInfo()
     reset();
 }
 
-AnimationInfo::AnimationInfo(const AnimationInfo &anim)
+AnimationInfo::AnimationInfo(const AnimationInfo &anim) : AnimationInfo()
 {
     *this = anim;
 }
@@ -85,45 +87,57 @@ AnimationInfo::~AnimationInfo()
 
 AnimationInfo& AnimationInfo::operator =(const AnimationInfo &anim)
 {
-    if (this != &anim){
-        memcpy(this, &anim, sizeof(AnimationInfo));
+    if (this == &anim)
+        return *this;
 
-        mutex = SDL_CreateMutex();
+    const auto copyName = [](const char *name) {
+        if (!name)
+            return std::unique_ptr<char[]>{};
+        const size_t length = strlen(name) + 1;
+        auto copy = std::make_unique<char[]>(length);
+        memcpy(copy.get(), name, length);
+        return copy;
+    };
+    auto imageName = copyName(anim.image_name);
+    auto surfaceName = copyName(anim.surface_name);
+    auto maskSurfaceName = copyName(anim.mask_surface_name);
+    auto fileName = copyName(anim.file_name);
+    auto maskFileName = copyName(anim.mask_file_name);
+    std::unique_ptr<uchar3[]> colors;
+    std::unique_ptr<int[]> durations;
+    if (anim.color_list) {
+        colors.reset(new uchar3[anim.num_of_cells]);
+        memcpy(colors.get(), anim.color_list, sizeof(uchar3) * anim.num_of_cells);
+    }
+    if (anim.duration_list) {
+        durations.reset(new int[anim.num_of_cells]);
+        memcpy(durations.get(), anim.duration_list, sizeof(int) * anim.num_of_cells);
+    }
 
-        if (image_name){
-            image_name = new char[ strlen(anim.image_name) + 1 ];
-            strcpy( image_name, anim.image_name );
-        }
-        if (surface_name){
-            surface_name = new char[ strlen(anim.surface_name) + 1 ];
-            strcpy( surface_name, anim.surface_name );
-        }
-        if (mask_surface_name){
-            mask_surface_name = new char[ strlen(anim.mask_surface_name) + 1 ];
-            strcpy( mask_surface_name, anim.mask_surface_name );
-        }
-        if (file_name){
-            file_name = new char[ strlen(anim.file_name) + 1 ];
-            strcpy( file_name, anim.file_name );
-        }
-        if (mask_file_name){
-            mask_file_name = new char[ strlen(anim.mask_file_name) + 1 ];
-            strcpy( mask_file_name, anim.mask_file_name );
-        }
-        if (color_list){
-            color_list = new uchar3[ anim.num_of_cells ];
-            memcpy(color_list, anim.color_list, sizeof(uchar3)*anim.num_of_cells);
-        }
-        if (duration_list){
-            duration_list = new int[ anim.num_of_cells ];
-            memcpy(duration_list, anim.duration_list, sizeof(int)*anim.num_of_cells);
-        }
-        
-        if (image_surface){
-            image_surface = allocSurface( anim.image_surface->w, anim.image_surface->h, texture_format );
-            memcpy(image_surface->pixels, anim.image_surface->pixels, anim.image_surface->pitch*anim.image_surface->h);
+    std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)> surface(nullptr, SDL_FreeSurface);
+    std::unique_ptr<unsigned char[]> alpha;
+    if (anim.image_surface) {
+        surface.reset(SDL_ConvertSurface(anim.image_surface, anim.image_surface->format, 0));
+        if (!surface)
+            throw std::runtime_error(SDL_GetError());
+        if (anim.alpha_buf) {
+            const size_t size = static_cast<size_t>(anim.image_surface->w) * anim.image_surface->h;
+            alpha = std::make_unique<unsigned char[]>(size);
+            memcpy(alpha.get(), anim.alpha_buf, size);
         }
     }
+
+    remove();
+    AnimationInfoState::operator=(anim);
+    image_name = imageName.release();
+    surface_name = surfaceName.release();
+    mask_surface_name = maskSurfaceName.release();
+    file_name = fileName.release();
+    mask_file_name = maskFileName.release();
+    color_list = colors.release();
+    duration_list = durations.release();
+    image_surface = surface.release();
+    alpha_buf = alpha.release();
 
     return *this;
 }
